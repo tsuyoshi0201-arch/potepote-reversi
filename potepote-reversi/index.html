@@ -1,0 +1,1094 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>ぽてぽてリバーシ</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+:root {
+  --ink:#2b1d10;
+  --panel-a:#33241a;
+  --panel-b:#291d15;
+  --line:#4d382a;
+  --cream:#f5e9d8;
+  --muted:#b09a80;
+  --you:#ffb066;      /* あなた（黒石） */
+  --pote:#7fc9ff;     /* ぽてぽて（白石） */
+  --gold:#ffd166;
+  --mis:#d76bb4;
+}
+
+body {
+  font-family:'Hiragino Maru Gothic Pro','BIZ UDPGothic',-apple-system,sans-serif;
+  background:radial-gradient(130% 90% at 50% 0%, #4a3527 0%, #2a1d16 55%, #17100c 100%);
+  min-height:100vh; min-height:100dvh;
+  color:var(--cream);
+  display:flex; flex-direction:column; align-items:center;
+  padding:14px 12px max(env(safe-area-inset-bottom),18px);
+  overflow-x:hidden; user-select:none;
+}
+.wrap { width:100%; max-width:440px; }
+
+#brand { text-align:center; margin-bottom:12px; }
+#brand h1 { font-size:1.2rem; font-weight:700; letter-spacing:.04em; }
+#brand p { font-size:.58rem; color:var(--muted); letter-spacing:.18em; margin-top:3px; }
+
+.screen { display:none; flex-direction:column; align-items:center; width:100%; }
+.screen.active { display:flex; }
+
+/* ===== スタート画面 ===== */
+.menu-btn {
+  width:100%; margin-bottom:10px; cursor:pointer; font-family:inherit; text-align:left;
+  background:linear-gradient(180deg,var(--panel-a),var(--panel-b));
+  border:1px solid var(--line); border-radius:15px; padding:15px 16px;
+  color:var(--cream); display:flex; align-items:center; gap:13px;
+  transition:filter .15s, transform .1s;
+}
+.menu-btn:active { transform:scale(.985); filter:brightness(1.25); }
+.menu-btn .ico {
+  width:44px; height:44px; flex-shrink:0; border-radius:12px; display:grid; place-items:center;
+  font-size:1.3rem; background:linear-gradient(160deg,#6b4a2b,#463019);
+  border:1px solid #5c422a; box-shadow:inset 0 1px 0 rgba(255,255,255,.16);
+}
+.menu-btn .ttl { font-size:.98rem; font-weight:700; }
+.menu-btn .sub { font-size:.66rem; color:var(--muted); margin-top:3px; }
+
+.sec-label { font-size:.62rem; color:var(--muted); letter-spacing:.1em; font-weight:700; margin:14px 0 6px 4px; }
+#lv-row {
+  display:grid; grid-template-columns:1fr 1fr; gap:6px; width:100%;
+  background:rgba(0,0,0,.22); border:1px solid var(--line); border-radius:12px; padding:5px;
+}
+.lv-btn {
+  background:transparent; border:none; color:var(--muted);
+  font-family:inherit; font-size:.76rem; font-weight:700;
+  padding:9px 4px; border-radius:8px; cursor:pointer;
+  transition:background .18s, color .18s, opacity .18s;
+  display:flex; flex-direction:column; align-items:center; gap:2px;
+}
+.lv-btn .st { font-size:.54rem; font-weight:700; min-height:.7em; }
+.lv-btn.on { background:linear-gradient(180deg,#c9862f,#8f5c1a); color:#fff; }
+.lv-btn.done .st { color:#8fd66a; }
+.lv-btn.on.done .st { color:#e6ffd8; }
+.lv-btn.locked { opacity:.45; }
+.lv-btn.just { animation:unlockPop .6s cubic-bezier(.3,1.7,.4,1) 2; }
+@keyframes unlockPop { 0%,100%{transform:scale(1)} 50%{transform:scale(1.09)} }
+
+#mis {
+  display:flex; align-items:center; gap:10px; margin-top:10px;
+  background:rgba(0,0,0,.22); border:1px solid var(--line); border-radius:12px; padding:9px 12px;
+}
+#mis-btn {
+  background:linear-gradient(180deg,#3d2c20,#2f2118); border:1px solid #55402f;
+  color:var(--muted); font-family:inherit; font-size:.75rem; font-weight:700;
+  padding:7px 12px; border-radius:9px; cursor:pointer; flex-shrink:0;
+  transition:background .2s, color .2s, border-color .2s;
+}
+#mis-btn.on { background:linear-gradient(180deg,#a3357f,#6d1f55); border-color:var(--mis); color:#ffe3f6; }
+#mis-txt { flex:1; min-width:0; font-size:.64rem; color:var(--muted); line-height:1.5; }
+
+/* ===== 手番バー ===== */
+#turnbar {
+  width:100%; background:linear-gradient(180deg,var(--panel-a),var(--panel-b));
+  border:1px solid var(--line); border-radius:15px; padding:11px 14px;
+  display:flex; align-items:center; gap:11px;
+  transition:border-color .3s, box-shadow .3s;
+}
+#turnbar.t1 { border-color:rgba(255,176,102,.6); box-shadow:0 6px 22px -14px rgba(255,176,102,.95); }
+#turnbar.t2 { border-color:rgba(127,201,255,.6); box-shadow:0 6px 22px -14px rgba(127,201,255,.95); }
+#turn-txt { flex:1; min-width:0; }
+#turn-name { font-size:1rem; font-weight:700; line-height:1.25; }
+#turnbar.t1 #turn-name { color:var(--you); }
+#turnbar.t2 #turn-name { color:var(--pote); }
+#turn-sub { font-size:.63rem; color:var(--muted); margin-top:2px; }
+.dots::after { content:''; animation:dots 1.2s steps(4,end) infinite; }
+@keyframes dots { 0%{content:''} 25%{content:'.'} 50%{content:'..'} 75%{content:'...'} }
+
+.tally { display:flex; align-items:center; gap:6px; flex-shrink:0; }
+.tally .chip {
+  display:flex; align-items:center; gap:5px;
+  background:rgba(0,0,0,.3); border:1px solid var(--line);
+  border-radius:9px; padding:5px 8px;
+}
+.tally .dot { width:15px; height:15px; border-radius:50%; }
+.tally .dot.a { background:linear-gradient(160deg,#4a3a2a,#141010); border:1px solid #000; }
+.tally .dot.b { background:linear-gradient(160deg,#ffffff,#c8d6e2); border:1px solid #8fa2b3; }
+.tally b { font-size:.92rem; font-weight:700; }
+
+#gauge-row {
+  display:none; align-items:center; gap:8px; width:100%; margin-top:8px;
+  font-size:.6rem; color:var(--muted);
+}
+#gauge-row.show { display:flex; }
+#gauge { flex:1; display:flex; gap:4px; }
+#gauge i { flex:1; height:5px; border-radius:3px; background:rgba(255,255,255,.12); transition:background .3s; }
+#gauge i.f { background:linear-gradient(90deg,var(--mis),#a3357f); box-shadow:0 0 6px rgba(215,107,180,.8); }
+#gauge-row.full #gauge i { animation:gp .8s ease-in-out infinite; }
+@keyframes gp { 0%,100%{opacity:.55} 50%{opacity:1} }
+
+/* ===== 盤 ===== */
+#frame {
+  margin:13px auto 0; border-radius:18px; padding:9px; width:max-content;
+  background:
+    repeating-linear-gradient(91deg,
+      rgba(0,0,0,.10) 0px, rgba(0,0,0,.10) 1px,
+      rgba(255,255,255,.03) 1px, rgba(255,255,255,.03) 4px,
+      rgba(0,0,0,.05) 4px, rgba(0,0,0,.05) 9px),
+    linear-gradient(160deg,#7d5334,#5d3b22 55%,#4a2e1a);
+  box-shadow:0 2px 0 rgba(255,255,255,.12) inset, 0 20px 44px -22px rgba(0,0,0,.95);
+}
+#grid {
+  position:relative;
+  display:grid; gap:1px; background:#123a1e;
+  border:2px solid #0d2a15; border-radius:6px; overflow:hidden;
+}
+/* せきがえの矢印を描くレイヤー */
+#fx { position:absolute; inset:0; pointer-events:none; z-index:5; overflow:visible; }
+/* 札はマスの中に置くとSVGの下になって隠れるので、独立した最前面レイヤーに置く */
+#tags { position:absolute; inset:0; pointer-events:none; z-index:8; }
+#fx line, #fx path { stroke:#ff5ec4; stroke-width:3.5; fill:none;
+  filter:drop-shadow(0 0 5px rgba(255,94,196,.9)); }
+#fx circle { fill:none; stroke:#ff5ec4; stroke-width:3; }
+#fx.go * { animation:fxIn .45s ease-out; }
+@keyframes fxIn { from{opacity:0} to{opacity:1} }
+
+/* 盤の上に出すイタズラ告知 */
+#cutin {
+  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%) scale(.6);
+  z-index:9; pointer-events:none; opacity:0; text-align:center; white-space:nowrap;
+  background:linear-gradient(180deg,#a3357f,#5f1a49);
+  border:3px solid #ffd9f2; border-radius:16px;
+  padding:13px 20px;
+  box-shadow:0 12px 30px -8px rgba(0,0,0,.9);
+}
+#cutin.go { animation:cutin 2.1s cubic-bezier(.2,1.5,.35,1) forwards; }
+@keyframes cutin {
+  0%   { opacity:0; transform:translate(-50%,-50%) scale(.5) rotate(-8deg); }
+  12%  { opacity:1; transform:translate(-50%,-50%) scale(1.12) rotate(3deg); }
+  22%  { transform:translate(-50%,-50%) scale(1) rotate(0); }
+  78%  { opacity:1; transform:translate(-50%,-50%) scale(1) rotate(0); }
+  100% { opacity:0; transform:translate(-50%,-62%) scale(1); }
+}
+#cut-ttl { font-size:1.28rem; font-weight:800; color:#fff; line-height:1.1;
+  text-shadow:0 2px 0 rgba(0,0,0,.5); }
+#cut-sub { font-size:.7rem; color:#ffd9f2; margin-top:5px; font-weight:700; }
+.cell {
+  position:relative; display:grid; place-items:center;
+  background:linear-gradient(160deg,#1e5c31,#174a27);
+}
+.cell.can { cursor:pointer; }
+.cell.can::after {
+  content:''; width:26%; height:26%; border-radius:50%;
+  background:rgba(255,209,102,.55); box-shadow:0 0 8px rgba(255,209,102,.6);
+  animation:hint 1.4s ease-in-out infinite;
+}
+@keyframes hint { 0%,100%{transform:scale(.8);opacity:.6} 50%{transform:scale(1.1);opacity:1} }
+.cell.can:active { background:linear-gradient(160deg,#2a7a42,#1e5c31); }
+
+.stone {
+  width:84%; height:84%; border-radius:50%; position:relative;
+  box-shadow:0 2px 4px -1px rgba(0,0,0,.7);
+}
+.stone.a { background:radial-gradient(circle at 34% 30%, #6b5843, #241d16 62%, #0d0a07); border:1px solid #000; }
+.stone.b { background:radial-gradient(circle at 34% 30%, #ffffff, #dfe8f0 58%, #a8bccd); border:1px solid #8fa2b3; }
+.stone.flip { animation:flipIn .34s cubic-bezier(.3,1.4,.5,1); }
+@keyframes flipIn { 0%{transform:rotateY(90deg) scale(.7)} 100%{transform:rotateY(0) scale(1)} }
+.stone.fresh { animation:drop .3s cubic-bezier(.3,1.6,.4,1); }
+@keyframes drop { 0%{transform:scale(.2)} 60%{transform:scale(1.12)} 100%{transform:scale(1)} }
+
+/* がんせき */
+.stone.rock {
+  border-radius:22%;
+  background:radial-gradient(circle at 30% 26%, #b9b3a4, #7d776a 58%, #4c473d);
+  border:1px solid #38342c;
+  box-shadow:0 2px 4px -1px rgba(0,0,0,.8), 0 0 0 2px rgba(215,107,180,.5);
+}
+.stone.rock::after {
+  content:''; position:absolute; inset:22% 30%;
+  background:
+    linear-gradient(115deg, transparent 44%, rgba(60,55,48,.9) 44%, rgba(60,55,48,.9) 50%, transparent 50%),
+    linear-gradient(58deg, transparent 46%, rgba(60,55,48,.75) 46%, rgba(60,55,48,.75) 52%, transparent 52%);
+}
+.stone.swapped { animation:swapPop .5s cubic-bezier(.3,1.6,.4,1) 3; }
+@keyframes swapPop { 0%,100%{transform:scale(1) rotate(0)} 50%{transform:scale(1.22) rotate(12deg)} }
+.stone.rocked { animation:rockPop .55s cubic-bezier(.3,1.6,.4,1) 3; }
+@keyframes rockPop { 0%,100%{transform:scale(1)} 45%{transform:scale(1.28)} }
+
+/* イタズラを受けたマス：次にあなたが打つまで光り続ける */
+.cell.mis-mark {
+  z-index:3;
+  box-shadow:inset 0 0 0 3px #ff5ec4, inset 0 0 14px rgba(255,94,196,.65);
+  animation:misGlow 1s ease-in-out infinite;
+}
+@keyframes misGlow {
+  0%,100% { box-shadow:inset 0 0 0 3px #ff5ec4, inset 0 0 12px rgba(255,94,196,.5); }
+  50% { box-shadow:inset 0 0 0 4px #ffd9f2, inset 0 0 20px rgba(255,94,196,.95); }
+}
+/* 見てもらったあと、そっと消える */
+.cell.mis-mark.mis-out { animation:misOut .5s ease-out forwards; }
+@keyframes misOut { to { box-shadow:none; } }
+#fx.out, #tags.out { animation:fxOut .5s ease-out forwards; }
+@keyframes fxOut { to { opacity:0; } }
+
+/* 何をされたかを示す小さな札（#tags レイヤーに置く） */
+.mis-tag {
+  position:absolute; transform:translate(-50%,-100%);
+  background:#26071a; color:#ffd9f2; border:2px solid #ff5ec4;
+  font-weight:800; padding:2px 6px; border-radius:6px;
+  white-space:nowrap; pointer-events:none; line-height:1.25;
+  box-shadow:0 3px 6px rgba(0,0,0,.75);
+  animation:tagIn .35s cubic-bezier(.3,1.6,.4,1);
+}
+@keyframes tagIn { from{opacity:0; transform:translate(-50%,-80%) scale(.7)} }
+/* 一番上の行では、マスの下に付ける */
+.mis-tag.below { transform:translate(-50%,0); animation:tagInBelow .35s cubic-bezier(.3,1.6,.4,1); }
+@keyframes tagInBelow { from{opacity:0; transform:translate(-50%,-20%) scale(.7)} }
+.cell.last { box-shadow:inset 0 0 0 2px rgba(255,209,102,.85); }
+
+/* ===== 操作 ===== */
+#ctrl { display:flex; gap:9px; margin-top:13px; }
+.btn {
+  flex:1; background:linear-gradient(180deg,#3d2c20,#2f2118);
+  border:1px solid #55402f; color:var(--cream); border-radius:12px;
+  padding:12px 8px; font-family:inherit; font-size:.82rem; font-weight:600;
+  cursor:pointer; transition:filter .15s, opacity .15s;
+}
+.btn:active { filter:brightness(1.35); }
+.btn:disabled { opacity:.38; cursor:default; }
+.btn.warn { color:#ffb0b6; border-color:rgba(224,74,84,.45); }
+
+/* ===== ルール ===== */
+#rules {
+  margin-top:12px; border-radius:14px; overflow:hidden; width:100%;
+  background:linear-gradient(180deg,var(--panel-a),var(--panel-b)); border:1px solid var(--line);
+}
+#rules summary {
+  padding:12px 15px; font-size:.82rem; font-weight:600; cursor:pointer;
+  list-style:none; color:#d3c0a8; display:flex; align-items:center; justify-content:space-between;
+}
+#rules summary::-webkit-details-marker { display:none; }
+#rules summary::after { content:'▾'; color:var(--muted); transition:transform .2s; }
+#rules[open] summary::after { transform:rotate(180deg); }
+#rules .body { padding:13px 15px 15px; border-top:1px solid var(--line); }
+#rules h4 { font-size:.68rem; color:var(--gold); letter-spacing:.08em; margin:0 0 7px; }
+#rules h4:not(:first-child) { margin-top:14px; }
+#rules li { list-style:none; font-size:.76rem; line-height:1.75; color:#ddcdb6; padding-left:15px; position:relative; }
+#rules li::before { content:'▸'; position:absolute; left:0; color:var(--gold); font-size:.7rem; }
+#rules em { color:var(--gold); font-style:normal; font-weight:700; }
+#rules .pk { color:var(--mis); font-weight:700; }
+
+/* ===== 結果 ===== */
+#over {
+  position:fixed; inset:0; z-index:60; padding:22px;
+  background:rgba(14,9,6,.88); backdrop-filter:blur(6px);
+  display:none; align-items:center; justify-content:center;
+}
+#over.show { display:flex; }
+#over-box {
+  background:linear-gradient(180deg,#3a2a1e,#2a1d15);
+  border:1px solid #55402f; border-radius:22px;
+  padding:26px 24px 20px; text-align:center; width:100%; max-width:320px;
+  animation:mpop .32s cubic-bezier(.2,1.5,.4,1);
+}
+@keyframes mpop { from{transform:scale(.85);opacity:0} to{transform:scale(1);opacity:1} }
+#over-h { font-size:1.36rem; font-weight:700; margin-bottom:12px; }
+#over-score {
+  display:flex; align-items:center; justify-content:center; gap:14px; margin-bottom:10px;
+}
+#over-score .side { display:flex; flex-direction:column; align-items:center; gap:5px; }
+#over-score .dot { width:30px; height:30px; border-radius:50%; }
+#over-score .dot.a { background:radial-gradient(circle at 34% 30%,#6b5843,#241d16 62%,#0d0a07); border:1px solid #000; }
+#over-score .dot.b { background:radial-gradient(circle at 34% 30%,#fff,#dfe8f0 58%,#a8bccd); border:1px solid #8fa2b3; }
+#over-score .n { font-size:1.6rem; font-weight:700; }
+#over-score .vs { font-size:.7rem; color:var(--muted); }
+#over-s { font-size:.76rem; color:#d3c0a8; line-height:1.7; margin-bottom:16px; }
+#over .btn { width:100%; margin-top:8px; padding:12px; }
+
+#toast {
+  position:fixed; left:50%; bottom:28px; transform:translate(-50%,14px);
+  background:rgba(38,27,19,.97); border:1px solid #55402f;
+  color:var(--cream); font-size:.78rem; font-weight:600;
+  padding:11px 20px; border-radius:12px; z-index:70;
+  opacity:0; pointer-events:none; transition:opacity .2s, transform .2s;
+  max-width:88vw; text-align:center;
+}
+#toast.show { opacity:1; transform:translate(-50%,0); }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div id="brand">
+    <h1>ぽてぽてリバーシ</h1>
+    <p>REVERSI · 8×8</p>
+  </div>
+</div>
+
+<!-- ===== スタート ===== -->
+<div id="screen-menu" class="screen active">
+  <div class="wrap">
+    <button class="menu-btn" id="start-btn">
+      <div class="ico">🥔</div>
+      <div>
+        <div class="ttl">ぽてぽてと対戦</div>
+        <div class="sub">あなたが●（先手）／ ぽてぽてが○</div>
+      </div>
+    </button>
+
+    <div class="sec-label">ぽてぽての強さ</div>
+    <div id="lv-row">
+      <button class="lv-btn on" data-lv="0"><span>🌱 甘口</span><span class="st"></span></button>
+      <button class="lv-btn" data-lv="1"><span>🌶️ 中辛</span><span class="st"></span></button>
+      <button class="lv-btn" data-lv="2"><span>🔥 辛口</span><span class="st"></span></button>
+      <button class="lv-btn" data-lv="3"><span>👹 大辛</span><span class="st"></span></button>
+    </div>
+
+    <div id="mis">
+      <button id="mis-btn">😈 イタズラ</button>
+      <div id="mis-txt"></div>
+    </div>
+
+    <details id="rules">
+      <summary>❓ あそびかた</summary>
+      <div class="body">
+        <h4>きほん</h4>
+        <ul>
+          <li>相手の石を<em>はさむ</em>と、はさんだ石が自分の色にひっくり返ります</li>
+          <li>置ける場所は<em>光る点</em>で教えてくれます</li>
+          <li>置ける場所がないときは<em>パス</em>になります</li>
+          <li>盤が埋まるか両者パスで終了。<em>石が多いほうの勝ち</em></li>
+        </ul>
+        <h4>😈 イタズラモード</h4>
+        <ul>
+          <li>ONにすると、ぽてぽてが<em>10回に1回</em>いたずらを仕掛けてきます</li>
+          <li><span class="pk">がんせき</span>…自分の石を1つ<em>岩</em>に変える。岩は<em>どちらの色でもなく、誰も返せない壁</em>になります（ぽてぽても石が1つ減ります）</li>
+          <li><span class="pk">せきがえ</span>…あなたの石1つと自分の石1つの<em>場所を入れ替える</em>（数は変わりません）</li>
+          <li>どちらも<em>ぽてぽての石は増えません</em>。イタズラした番は打ちません</li>
+          <li>ゲージが溜まると予告されるので、<em>先に手を打とう</em></li>
+          <li>仕掛けられると盤の上に<em>大きく表示</em>され、対象のマスが<em>ピンクに光ります</em>。
+              せきがえは<em>矢印</em>でどこと入れ替わったか分かります（少し見せたあと消えます）</li>
+        </ul>
+        <h4>ぽてぽての強さ</h4>
+        <ul>
+          <li><em>👹大辛</em>は、甘口・中辛・辛口の<em>3つすべてに勝つ</em>と挑戦できます</li>
+        </ul>
+      </div>
+    </details>
+  </div>
+</div>
+
+<!-- ===== ゲーム ===== -->
+<div id="screen-game" class="screen">
+  <div class="wrap">
+    <div id="turnbar" class="t1">
+      <div id="turn-txt">
+        <div id="turn-name">あなたの番</div>
+        <div id="turn-sub">光る点をタップ</div>
+      </div>
+      <div class="tally">
+        <div class="chip"><span class="dot a"></span><b id="n-a">2</b></div>
+        <div class="chip"><span class="dot b"></span><b id="n-b">2</b></div>
+      </div>
+    </div>
+    <div id="gauge-row"><span id="gauge-txt"></span><span id="gauge"></span></div>
+  </div>
+
+  <div id="frame">
+    <div id="grid">
+      <svg id="fx"></svg>
+      <div id="tags"></div>
+      <div id="cutin"><div id="cut-ttl"></div><div id="cut-sub"></div></div>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div id="ctrl">
+      <button class="btn" id="undo-btn">↩ 1手もどる</button>
+      <button class="btn warn" id="reset-btn">⟲ 最初から</button>
+      <button class="btn" id="menu-btn">← さいしょの画面</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 結果 ===== -->
+<div id="over">
+  <div id="over-box">
+    <div id="over-h"></div>
+    <div id="over-score">
+      <div class="side"><span class="dot a"></span><span class="n" id="fin-a">0</span></div>
+      <span class="vs">－</span>
+      <div class="side"><span class="dot b"></span><span class="n" id="fin-b">0</span></div>
+    </div>
+    <div id="over-s"></div>
+    <button class="btn" id="again-btn">もう一度あそぶ</button>
+    <button class="btn" id="tomenu-btn">さいしょの画面へ</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+
+const N = 8;
+const EMPTY = 0, YOU = 1, POTE = 2;      // あなた=● / ぽてぽて=○
+// がんせき：どちらの色でもない中立の石。誰も返せず、置くこともできない。
+// ぽてぽては自分の石を1つ失って作るので、石数では損をする。
+const ROCK = 3;
+const DIRS = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+
+const LEVELS = [
+  { name:'甘口', depth:1, rand:0.45 },
+  { name:'中辛', depth:3, rand:0.08 },
+  { name:'辛口', depth:4, rand:0    },
+  { name:'大辛', depth:5, rand:0    },   // 中盤でも1秒以内に収まる上限
+];
+const HARD = 3, REQ = [0,1,2];
+const LS_LV = 'potepote_reversi_level';
+const LS_WON = 'potepote_reversi_won';
+const LS_MIS = 'potepote_reversi_mischief';
+
+// イタズラ
+// リバーシは「手番を消費させる」が罰にならない（手数が少ない側が有利な場面すらある）ため、
+// 他ゲームのような手番コストでは釣り合わない。頻度と、狙い撃ちしないことで調整している。
+const GAUGE_MAX = 10;
+
+// マスの価値（角が高く、角の隣は危険）
+const W = [
+  [120,-20, 20,  5,  5, 20,-20,120],
+  [-20,-40, -5, -5, -5, -5,-40,-20],
+  [ 20, -5, 15,  3,  3, 15, -5, 20],
+  [  5, -5,  3,  3,  3,  3, -5,  5],
+  [  5, -5,  3,  3,  3,  3, -5,  5],
+  [ 20, -5, 15,  3,  3, 15, -5, 20],
+  [-20,-40, -5, -5, -5, -5,-40,-20],
+  [120,-20, 20,  5,  5, 20,-20,120],
+];
+
+let board, turn, over, busy, history, moveNo, cell;
+let level = 0, won = [], justUnlocked = false;
+let mischief = true, gauge = 0, lastMisType = null, lastMis = null, lastPut = null;
+
+const el = id => document.getElementById(id);
+const inB = (r,c) => r >= 0 && r < N && c >= 0 && c < N;
+const key = (r,c) => r + ',' + c;
+const isRock = (r,c) => board[r][c] === ROCK;
+
+// ===== 記録 =====
+function loadWon() {
+  try { const v = JSON.parse(localStorage.getItem(LS_WON) || '[]'); won = Array.isArray(v) ? v : []; }
+  catch (e) { won = []; }
+}
+function saveWon() { try { localStorage.setItem(LS_WON, JSON.stringify(won)); } catch (e) {} }
+const isUnlocked = i => i !== HARD || REQ.every(k => won.includes(k));
+
+// ===== 盤 =====
+function newBoard() {
+  const b = Array.from({length:N}, () => Array(N).fill(EMPTY));
+  b[3][3] = POTE; b[4][4] = POTE;
+  b[3][4] = YOU;  b[4][3] = YOU;
+  return b;
+}
+const clone = b => b.map(r => [...r]);
+
+/** (r,c) に p が打ったとき、その方向で返せる石。岩があると返せない＝不成立 */
+function flipsIn(b, r, c, dr, dc, p) {
+  const opp = 3 - p;
+  const out = [];
+  let y = r + dr, x = c + dc;
+  while (inB(y,x) && b[y][x] === opp) {
+    out.push([y,x]);
+    y += dr; x += dc;
+  }
+  if (!out.length) return [];
+  if (!inB(y,x) || b[y][x] !== p) return [];
+  return out;
+}
+
+function flipsFor(b, r, c, p) {
+  if (b[r][c] !== EMPTY) return [];
+  let all = [];
+  for (const [dr,dc] of DIRS) all = all.concat(flipsIn(b, r, c, dr, dc, p));
+  return all;
+}
+
+function legalMoves(b, p) {
+  const out = [];
+  for (let r = 0; r < N; r++)
+    for (let c = 0; c < N; c++) {
+      const f = flipsFor(b, r, c, p);
+      if (f.length) out.push({ r, c, flips:f });
+    }
+  return out;
+}
+
+function applyMove(b, r, c, flips, p) {
+  b[r][c] = p;
+  for (const [y,x] of flips) b[y][x] = p;
+}
+
+function count(b) {
+  let a = 0, d = 0;
+  for (const row of b) for (const v of row) { if (v === YOU) a++; else if (v === POTE) d++; }
+  return { a, d };
+}
+
+// ===== 評価・AI =====
+function evaluate(b, me) {
+  const opp = 3 - me;
+  const { a, d } = count(b);
+  const filled = a + d;
+  let pos = 0, mine = 0, theirs = 0;
+  for (let r = 0; r < N; r++)
+    for (let c = 0; c < N; c++) {
+      const v = b[r][c];
+      if (v === EMPTY) continue;
+      if (v === ROCK) continue;                 // 岩はどちらのものでもない
+      const w = W[r][c];
+      if (v === me) { pos += w; mine++; } else { pos -= w; theirs++; }
+    }
+  const myMob = legalMoves(b, me).length;
+  const opMob = legalMoves(b, opp).length;
+  const mob = (myMob - opMob) * 10;
+
+  if (filled >= 56) {                            // 終盤は石数がものを言う
+    return pos * 0.3 + mob * 0.5 + (mine - theirs) * 25;
+  }
+  return pos + mob;
+}
+
+function negamax(b, p, depth, alpha, beta) {
+  const moves = legalMoves(b, p);
+  if (depth <= 0) return evaluate(b, p);
+  if (!moves.length) {
+    if (!legalMoves(b, 3-p).length) {         // 両者打てない＝終局
+      const { a, d } = count(b);
+      const diff = (p === YOU ? a - d : d - a);
+      return diff * 10000;
+    }
+    return -negamax(b, 3-p, depth-1, -beta, -alpha);
+  }
+  // マス価値の高い手から見ると枝刈りが効く（並べ替え自体はコピー不要で安い）
+  if (depth >= 2) moves.sort((x,y) => W[y.r][y.c] - W[x.r][x.c]);
+  let best = -Infinity;
+  for (const m of moves) {
+    const nb = clone(b);
+    applyMove(nb, m.r, m.c, m.flips, p);
+    const sc = -negamax(nb, 3-p, depth-1, -beta, -alpha);
+    if (sc > best) best = sc;
+    if (best > alpha) alpha = best;
+    if (alpha >= beta) break;
+  }
+  return best;
+}
+
+function chooseAIMove() {
+  const moves = legalMoves(board, POTE);
+  if (!moves.length) return null;
+  const cfg = LEVELS[level];
+  if (cfg.rand && Math.random() < cfg.rand)
+    return moves[Math.floor(Math.random() * moves.length)];
+
+  let best = [], bs = -Infinity;
+  for (const m of moves) {
+    const nb = clone(board);
+    applyMove(nb, m.r, m.c, m.flips, POTE);
+    const sc = -negamax(nb, YOU, cfg.depth - 1, -Infinity, Infinity);
+    if (sc > bs) { bs = sc; best = [m]; }
+    else if (sc === bs) best.push(m);
+  }
+  return best[Math.floor(Math.random() * best.length)];
+}
+
+// ===== イタズラ =====
+/** ①がんせき：ぽてぽての石を1つ、返せない岩にする */
+function rockSpots() {
+  const out = [];
+  for (let r = 0; r < N; r++)
+    for (let c = 0; c < N; c++)
+      if (board[r][c] === POTE) out.push({ type:'rock', r, c });
+  return out;
+}
+
+/** ②せきがえ：あなたの石1つと、ぽてぽての石1つの場所を交換（岩は動かせない） */
+function swapPairs() {
+  const yours = [], theirs = [];
+  for (let r = 0; r < N; r++)
+    for (let c = 0; c < N; c++) {
+      if (board[r][c] === YOU) yours.push([r,c]);
+      else if (board[r][c] === POTE) theirs.push([r,c]);
+    }
+  const out = [];
+  for (const [ar,ac] of yours)
+    for (const [br,bc] of theirs)
+      out.push({ type:'swap', r:ar, c:ac, r2:br, c2:bc });
+  return out;
+}
+
+/**
+ * イタズラの中身は「探索で狙い撃ち」しない。
+ * 最善手を選ばせると、頻度をどれだけ下げてもぽてぽてが勝ちすぎたため。
+ * 気まぐれに選ぶことで、驚きは残しつつ釣り合いが取れる。
+ */
+function chooseMischief() {
+  const rk = rockSpots(), sw = swapPairs();
+
+  // 片方に偏らないよう、前回と違う種別を優先する
+  let cands;
+  if (lastMisType === 'rock' && sw.length) cands = sw;
+  else if (lastMisType === 'swap' && rk.length) cands = rk;
+  else cands = [...rk, ...sw];
+  if (!cands.length) cands = [...rk, ...sw];
+  if (!cands.length) return null;
+
+  const pick = cands[Math.floor(Math.random() * cands.length)];
+  lastMisType = pick.type;
+  return pick;
+}
+
+/** 盤の上に「何をされたか」を大きく出す */
+function showCutin(type) {
+  const box = el('cutin');
+  if (type === 'rock') {
+    el('cut-ttl').textContent = '🪨 がんせき！';
+    el('cut-sub').innerHTML = 'ぽてぽての石が岩になった<br>もう だれも返せません';
+  } else {
+    el('cut-ttl').textContent = '🔄 せきがえ！';
+    el('cut-sub').innerHTML = 'あなたの石と ぽてぽての石の<br>場所が入れかわった';
+  }
+  box.classList.remove('go');
+  void box.offsetWidth;
+  box.classList.add('go');
+}
+
+/** せきがえで入れ替わった2マスを矢印でつなぐ */
+function drawSwapArrow(a, b) {
+  const fx = el('fx');
+  fx.innerHTML = '';
+  if (!a || !b) return;
+  const x1 = cx(a[1]), y1 = cx(a[0]), x2 = cx(b[1]), y2 = cx(b[0]);
+  const mk = (t, at) => {
+    const e = document.createElementNS('http://www.w3.org/2000/svg', t);
+    for (const k in at) e.setAttribute(k, at[k]);
+    fx.appendChild(e);
+    return e;
+  };
+  // 2マスを丸で囲み、両向き矢印で結ぶ
+  mk('circle', { cx:x1, cy:y1, r:cell*0.46 });
+  mk('circle', { cx:x2, cy:y2, r:cell*0.46 });
+  mk('line', { x1, y1, x2, y2, 'stroke-dasharray':'7 5' });
+  const ang = Math.atan2(y2 - y1, x2 - x1), h = cell * 0.26;
+  const head = (x, y, dir) => {
+    const p1x = x - Math.cos(ang + 0.45) * h * dir, p1y = y - Math.sin(ang + 0.45) * h * dir;
+    const p2x = x - Math.cos(ang - 0.45) * h * dir, p2y = y - Math.sin(ang - 0.45) * h * dir;
+    mk('path', { d:`M${p1x} ${p1y} L${x} ${y} L${p2x} ${p2y}` });
+  };
+  head(x2 - Math.cos(ang)*cell*0.46, y2 - Math.sin(ang)*cell*0.46, 1);
+  head(x1 + Math.cos(ang)*cell*0.46, y1 + Math.sin(ang)*cell*0.46, -1);
+  fx.classList.remove('go'); void fx.offsetWidth; fx.classList.add('go');
+}
+function clearFx() {
+  const f = el('fx'); f.innerHTML = ''; f.classList.remove('out');
+  const t = el('tags'); t.innerHTML = ''; t.classList.remove('out');
+  // 告知の go を残すと、盤を作り直したとき（要素の再追加）に
+  // アニメーションが勝手に再生されてしまうので必ず外す
+  el('cutin').classList.remove('go');
+}
+
+/**
+ * イタズラの印は「気づいてもらう」ためのもの。
+ * 見てもらったら自動で消す（残り続けると盤が読みにくい）。
+ */
+let misTimer = null;
+function scheduleMisClear(ms) {
+  clearTimeout(misTimer);
+  misTimer = setTimeout(() => {
+    document.querySelectorAll('.cell.mis-mark').forEach(c => c.classList.add('mis-out'));
+    el('fx').classList.add('out');
+    el('tags').classList.add('out');
+    misTimer = setTimeout(() => {
+      misTimer = null;
+      lastMis = null;
+      clearFx();
+      render();
+    }, 500);
+  }, ms);
+}
+/** 手を指した・やり直した等で、待たずに片づける */
+function cancelMisFx() {
+  clearTimeout(misTimer);
+  misTimer = null;
+  lastMis = null;
+  clearFx();
+}
+
+function doMischief(mi) {
+  history.push(snapshot());
+  if (mi.type === 'rock') {
+    board[mi.r][mi.c] = ROCK;
+    lastMis = { type:'rock', cells:[[mi.r, mi.c]] };
+    clearFx();
+  } else {
+    board[mi.r][mi.c] = POTE;
+    board[mi.r2][mi.c2] = YOU;
+    lastMis = { type:'swap', cells:[[mi.r,mi.c],[mi.r2,mi.c2]] };
+  }
+  moveNo++;
+  gauge = 0;
+  lastPut = null;
+  showCutin(mi.type);
+  if (mi.type === 'swap') drawSwapArrow([mi.r, mi.c], [mi.r2, mi.c2]);
+}
+
+// ===== 進行 =====
+const snapshot = () => ({
+  board: clone(board), turn, moveNo, gauge,
+  lastMisType, lastPut: lastPut ? [...lastPut] : null,
+});
+
+function startGame() {
+  board = newBoard();
+  turn = YOU; over = false; busy = false;
+  history = []; moveNo = 0;
+  gauge = 0; lastMisType = null; lastPut = null;
+  cancelMisFx();
+  el('over').classList.remove('show');
+  showScreen('game');
+  buildGrid();
+  render();
+}
+
+function playerMove(r, c) {
+  if (over || busy || turn !== YOU) return;
+  const f = flipsFor(board, r, c, YOU);
+  if (!f.length) return;
+  history.push(snapshot());
+  cancelMisFx();
+  applyMove(board, r, c, f, YOU);
+  lastPut = [r, c];
+  moveNo++;
+  render({ flips:f, put:[r,c] });
+  nextTurn(YOU);
+}
+
+/** 手番を渡す。打てない側はパス。両者パスで終局 */
+function nextTurn(justMoved) {
+  const other = 3 - justMoved;
+  if (legalMoves(board, other).length) {
+    turn = other;
+    render();
+    if (turn === POTE) setTimeout(aiTurn, 420);
+    return;
+  }
+  if (legalMoves(board, justMoved).length) {
+    turn = justMoved;
+    toast(`${other === YOU ? 'あなた' : 'ぽてぽて'} は置ける場所がありません → パス`);
+    render();
+    if (turn === POTE) setTimeout(aiTurn, 620);
+    return;
+  }
+  finish();
+}
+
+function aiTurn() {
+  if (over) return;
+  busy = true;
+  render();
+  setTimeout(() => {
+    if (over) { busy = false; return; }
+
+    if (mischief && gauge >= GAUGE_MAX) {
+      const mi = chooseMischief();
+      if (mi) {
+        doMischief(mi);
+        render({ mis:true });
+        // 何をされたか見てもらうため、少し置いてから操作を返す
+        scheduleMisClear(3400);          // 認識してもらってから自動で消す
+        setTimeout(() => {
+          busy = false;
+          nextTurn(POTE);                  // イタズラで手番を使い切る
+        }, 1600);
+        return;
+      }
+      gauge = 0;
+    }
+
+    const m = chooseAIMove();
+    busy = false;
+    if (!m) { nextTurn(POTE); return; }
+    history.push(snapshot());
+    cancelMisFx();
+    applyMove(board, m.r, m.c, m.flips, POTE);
+    lastPut = [m.r, m.c];
+    moveNo++;
+    gauge = Math.min(GAUGE_MAX, gauge + 1);
+    render({ flips:m.flips, put:[m.r,m.c] });
+    nextTurn(POTE);
+  }, 300);
+}
+
+function finish() {
+  over = true;
+  const { a, d } = count(board);
+  el('fin-a').textContent = a;
+  el('fin-b').textContent = d;
+  let head, sub;
+  if (a > d) {
+    head = 'あなたの勝ち！';
+    el('over-h').style.color = 'var(--you)';
+    if (!won.includes(level)) { won.push(level); saveWon(); }
+    const wasLocked = !isUnlocked(HARD);
+    justUnlocked = wasLocked && isUnlocked(HARD);
+    sub = `<span style="color:#8fd66a">${LEVELS[level].name} クリア！</span>`;
+    if (justUnlocked) sub += `<br><span style="color:var(--gold)">🔓 大辛が解放されました！</span>`;
+    renderLevels();
+  } else if (d > a) {
+    head = 'ぽてぽての勝ち！';
+    el('over-h').style.color = 'var(--pote)';
+    sub = `${d - a}個の差でした。もう一度どうぞ`;
+  } else {
+    head = '引き分け';
+    el('over-h').style.color = 'var(--cream)';
+    sub = 'まったくの同数でした';
+  }
+  const nRock = board.flat().filter(v => v === ROCK).length;
+  if (nRock) sub += `<br><span style="color:var(--mis)">がんせき ${nRock}個</span>`;
+  el('over-h').textContent = head;
+  el('over-s').innerHTML = sub;
+  render();
+  setTimeout(() => el('over').classList.add('show'), 800);
+}
+
+function undo() {
+  if (busy || !history.length) return;
+  do {
+    const h = history.pop();
+    board = h.board; turn = h.turn;
+    moveNo = h.moveNo; gauge = h.gauge; lastMisType = h.lastMisType;
+    lastPut = h.lastPut;
+  } while (history.length && turn !== YOU);
+  over = false;
+  cancelMisFx();
+  el('over').classList.remove('show');
+  render();
+  // 巻き戻した先がぽてぽての番だった場合に止まらないようにする
+  if (turn === POTE) setTimeout(aiTurn, 320);
+}
+
+// ===== 描画 =====
+let cells = [];
+function buildGrid() {
+  const g = el('grid');
+  // 演出レイヤーは作り直さず使い回す。
+  // g.innerHTML='' で外れる前に、必ずここで参照を取っておくこと
+  const fx = el('fx'), tags = el('tags'), cut = el('cutin');
+  const vw = Math.min(window.innerWidth, 440);
+  cell = Math.max(30, Math.min(48, Math.floor((vw - 24 - 18 - 4 - (N-1)) / N)));
+  g.style.gridTemplateColumns = `repeat(${N}, ${cell}px)`;
+  g.innerHTML = '';
+  cells = [];
+  for (let r = 0; r < N; r++)
+    for (let c = 0; c < N; c++) {
+      const d = document.createElement('div');
+      d.className = 'cell';
+      d.style.width = cell + 'px';
+      d.style.height = cell + 'px';
+      d.style.fontSize = cell + 'px';
+      d.dataset.r = r; d.dataset.c = c;
+      g.appendChild(d);
+      cells.push(d);
+    }
+  // 再追加でアニメが再生されないよう、演出クラスを外してから戻す
+  cut.classList.remove('go');
+  fx.classList.remove('out'); fx.innerHTML = '';
+  tags.classList.remove('out'); tags.innerHTML = '';
+  g.appendChild(fx);
+  g.appendChild(tags);
+  g.appendChild(cut);
+  const side = N * cell + (N - 1);
+  fx.setAttribute('viewBox', `0 0 ${side} ${side}`);
+  fx.setAttribute('width', side);
+  fx.setAttribute('height', side);
+  g.onclick = e => {
+    const t = e.target.closest('.cell');
+    if (t) playerMove(Number(t.dataset.r), Number(t.dataset.c));
+  };
+}
+
+const cellEl = (r,c) => cells[r*N + c];
+/** マス中心の座標（fxレイヤー内） */
+const cx = c => c * (cell + 1) + cell / 2;
+
+function render(fx) {
+  const canPlay = !over && !busy && turn === YOU;
+  const legal = canPlay ? legalMoves(board, YOU) : [];
+  const legalSet = new Set(legal.map(m => key(m.r, m.c)));
+  const flipSet = new Set((fx && fx.flips ? fx.flips : []).map(([r,c]) => key(r,c)));
+  const misSet = new Set((lastMis ? lastMis.cells : []).map(([r,c]) => key(r,c)));
+
+  for (let r = 0; r < N; r++)
+    for (let c = 0; c < N; c++) {
+      const d = cellEl(r,c);
+      d.className = 'cell';
+      d.innerHTML = '';
+      if (legalSet.has(key(r,c))) d.classList.add('can');
+      if (lastPut && lastPut[0] === r && lastPut[1] === c) d.classList.add('last');
+      if (misSet.has(key(r,c))) d.classList.add('mis-mark');
+
+      const v = board[r][c];
+      if (!v) continue;
+      const s = document.createElement('div');
+      s.className = 'stone ' + (v === ROCK ? 'rock' : v === YOU ? 'a' : 'b');
+      if (flipSet.has(key(r,c))) s.classList.add('flip');
+      if (fx && fx.put && fx.put[0] === r && fx.put[1] === c) s.classList.add('fresh');
+      if (lastMis && misSet.has(key(r,c)))
+        s.classList.add(lastMis.type === 'swap' ? 'swapped' : 'rocked');
+      d.appendChild(s);
+
+    }
+
+  // 札はSVGより上のレイヤーに置く（マス内だと矢印の丸に隠れる）
+  const tagBox = el('tags');
+  tagBox.innerHTML = '';
+  if (lastMis) {
+    for (const [r,c] of lastMis.cells) {
+      const v = board[r][c];
+      const tag = document.createElement('span');
+      tag.className = 'mis-tag';
+      tag.style.fontSize = Math.max(8, Math.round(cell * 0.26)) + 'px';
+      // 上端の行だとマスの上に出すと盤の外にはみ出すので、下に付け替える
+      if (r === 0) {
+        tag.classList.add('below');
+        tag.style.top = ((r + 1) * (cell + 1) + 3) + 'px';
+      } else {
+        tag.style.top = (r * (cell + 1) - 3) + 'px';
+      }
+      tag.style.left = cx(c) + 'px';
+      tag.textContent = lastMis.type === 'rock' ? '岩になった'
+        : (v === YOU ? 'あなたの石' : 'ぽてぽての石');
+      tagBox.appendChild(tag);
+      // 左右にはみ出すぶんを盤の中へ寄せる
+      const side = N * cell + (N - 1);
+      const w = tag.offsetWidth;
+      const left = Math.min(Math.max(cx(c), w / 2 + 2), side - w / 2 - 2);
+      tag.style.left = left + 'px';
+    }
+  }
+
+  const { a, d } = count(board);
+  el('n-a').textContent = a;
+  el('n-b').textContent = d;
+
+  const t = el('turnbar');
+  t.className = 't' + turn;
+  el('turn-name').textContent = over ? 'ゲーム終了' : (turn === YOU ? 'あなたの番' : 'ぽてぽての番');
+  const sub = el('turn-sub');
+  if (over) { sub.textContent = '結果を見てね'; sub.className = ''; }
+  else if (turn === POTE) { sub.textContent = 'かんがえているよ'; sub.className = 'dots'; }
+  else { sub.textContent = legal.length ? '光る点をタップ' : 'パスします'; sub.className = ''; }
+
+  el('undo-btn').disabled = busy || !history.length;
+  renderGauge();
+}
+
+function renderGauge() {
+  const row = el('gauge-row'), g = el('gauge');
+  row.classList.toggle('show', !!mischief);
+  if (!mischief) return;
+  const rest = GAUGE_MAX - gauge;
+  row.classList.toggle('full', rest <= 0);
+  el('gauge-txt').textContent = rest <= 0 ? '😈 つぎの番でイタズラ！' : `😈 あと${rest}回でイタズラ`;
+  g.innerHTML = '';
+  for (let i = 0; i < GAUGE_MAX; i++) {
+    const b = document.createElement('i');
+    if (i < gauge) b.className = 'f';
+    g.appendChild(b);
+  }
+}
+
+function setMischief(on, silent) {
+  mischief = !!on;
+  try { localStorage.setItem(LS_MIS, on ? '1' : '0'); } catch (e) {}
+  el('mis-btn').classList.toggle('on', mischief);
+  el('mis-txt').innerHTML = mischief
+    ? 'ON ／ ぽてぽてが10回に1回いたずらします<br><span style="color:var(--mis)">がんせき・せきがえ</span>'
+    : 'OFF ／ ぽてぽては正々堂々と勝負します';
+  if (!mischief) gauge = 0;
+  if (!silent) toast(mischief ? '😈 イタズラモード ON！' : 'イタズラモード OFF');
+  if (board && history) render();
+}
+
+function renderLevels() {
+  document.querySelectorAll('.lv-btn').forEach(b => {
+    const i = Number(b.dataset.lv);
+    const open = isUnlocked(i), done = won.includes(i);
+    b.classList.toggle('on', i === level);
+    b.classList.toggle('done', done);
+    b.classList.toggle('locked', !open);
+    b.querySelector('.st').textContent = !open ? '🔒 ロック中' : (done ? '✓ クリア' : '');
+    if (open && justUnlocked && i === HARD) {
+      b.classList.remove('just'); void b.offsetWidth; b.classList.add('just');
+    }
+  });
+  justUnlocked = false;
+}
+
+function setLevel(i, silent) {
+  if (!isUnlocked(i)) {
+    const rest = REQ.filter(k => !won.includes(k)).map(k => LEVELS[k].name).join('・');
+    toast(`大辛は ${rest} に勝つと挑戦できます`);
+    return;
+  }
+  level = i;
+  try { localStorage.setItem(LS_LV, String(i)); } catch (e) {}
+  renderLevels();
+  if (!silent) toast(`ぽてぽての強さ：${LEVELS[i].name}`);
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  el('screen-' + id).classList.add('active');
+}
+
+let tt;
+function toast(msg) {
+  const e = el('toast');
+  e.textContent = msg;
+  e.classList.add('show');
+  clearTimeout(tt);
+  tt = setTimeout(() => e.classList.remove('show'), 1900);
+}
+
+// ===== 配線 =====
+el('start-btn').addEventListener('click', () => startGame());
+el('mis-btn').addEventListener('click', () => setMischief(!mischief));
+document.querySelectorAll('.lv-btn').forEach(b =>
+  b.addEventListener('click', () => setLevel(Number(b.dataset.lv))));
+el('reset-btn').addEventListener('click', () => startGame());
+el('again-btn').addEventListener('click', () => startGame());
+el('undo-btn').addEventListener('click', undo);
+el('menu-btn').addEventListener('click', () => { el('over').classList.remove('show'); showScreen('menu'); });
+el('tomenu-btn').addEventListener('click', () => { el('over').classList.remove('show'); showScreen('menu'); });
+
+let rt;
+window.addEventListener('resize', () => {
+  clearTimeout(rt);
+  rt = setTimeout(() => { if (board) { buildGrid(); render(); } }, 150);
+});
+
+// ===== 起動 =====
+loadWon();
+let saved = 0;
+try { const v = localStorage.getItem(LS_LV); if (v !== null) saved = Number(v); } catch (e) {}
+if (!Number.isInteger(saved) || saved < 0 || saved >= LEVELS.length) saved = 0;
+if (!isUnlocked(saved)) saved = 0;
+level = saved;
+renderLevels();
+
+let savedMis = true;
+try { const v = localStorage.getItem(LS_MIS); if (v !== null) savedMis = (v === '1'); } catch (e) {}
+setMischief(savedMis, true);
+</script>
+</body>
+</html>
