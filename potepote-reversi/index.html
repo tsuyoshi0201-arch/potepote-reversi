@@ -143,6 +143,25 @@ body {
   display:grid; gap:1px; background:#123a1e;
   border:2px solid #0d2a15; border-radius:6px; overflow:hidden;
 }
+/* 盤面を横切り、重なった場所の操作を実際に遮るぽてぽて */
+#walker {
+  position:absolute; left:0; top:0; z-index:12;
+  width:clamp(72px,23vw,104px); height:auto;
+  pointer-events:none; opacity:0;
+  -webkit-user-drag:none; user-select:none;
+  filter:drop-shadow(0 5px 4px rgba(0,0,0,.4));
+}
+#walker.go { pointer-events:auto; opacity:1; }
+#walker.go.ltr { animation:walkerLtr 4.2s linear forwards; }
+#walker.go.rtl { animation:walkerRtl 4.2s linear forwards; }
+@keyframes walkerLtr {
+  from { left:0; transform:translateX(-105%) scaleX(1); }
+  to { left:100%; transform:translateX(5%) scaleX(1); }
+}
+@keyframes walkerRtl {
+  from { left:100%; transform:translateX(5%) scaleX(-1); }
+  to { left:0; transform:translateX(-105%) scaleX(-1); }
+}
 /* せきがえの矢印を描くレイヤー */
 #fx { position:absolute; inset:0; pointer-events:none; z-index:5; overflow:visible; }
 /* 札はマスの中に置くとSVGの下になって隠れるので、独立した最前面レイヤーに置く */
@@ -399,6 +418,7 @@ body {
       <svg id="fx"></svg>
       <div id="tags"></div>
       <div id="cutin"><div id="cut-ttl"></div><div id="cut-sub"></div></div>
+      <img id="walker" src="potepote_walk_transparent.gif" alt="盤面を横切るぽてぽて" draggable="false">
     </div>
   </div>
 
@@ -453,6 +473,8 @@ const LS_MIS = 'potepote_reversi_mischief';
 // リバーシは「手番を消費させる」が罰にならない（手数が少ない側が有利な場面すらある）ため、
 // 他ゲームのような手番コストでは釣り合わない。頻度と、狙い撃ちしないことで調整している。
 const GAUGE_MAX = 10;
+const WALK_MIN_MS = 9000;
+const WALK_MAX_MS = 16000;
 
 // マスの価値（角が高く、角の隣は危険）
 const W = [
@@ -469,6 +491,7 @@ const W = [
 let board, turn, over, busy, history, moveNo, cell;
 let level = 0, won = [], justUnlocked = false;
 let mischief = true, gauge = 0, lastMisType = null, lastMis = null, lastPut = null;
+let walkTimer = null;
 
 const el = id => document.getElementById(id);
 const inB = (r,c) => r >= 0 && r < N && c >= 0 && c < N;
@@ -748,6 +771,7 @@ const snapshot = () => ({
 });
 
 function startGame() {
+  stopWalker();
   board = newBoard();
   turn = YOU; over = false; busy = false;
   history = []; moveNo = 0;
@@ -757,7 +781,51 @@ function startGame() {
   showScreen('game');
   buildGrid();
   render();
+  scheduleWalker();
 }
+
+// ===== 盤面を横切るイタズラ =====
+function gameIsActive() {
+  return !!board && !over && el('screen-game').classList.contains('active');
+}
+
+function stopWalker() {
+  clearTimeout(walkTimer);
+  walkTimer = null;
+  const walker = el('walker');
+  walker.classList.remove('go', 'ltr', 'rtl');
+}
+
+function scheduleWalker(delay) {
+  clearTimeout(walkTimer);
+  walkTimer = null;
+  if (!mischief || !gameIsActive()) return;
+  const wait = delay ?? WALK_MIN_MS + Math.random() * (WALK_MAX_MS - WALK_MIN_MS);
+  walkTimer = setTimeout(tryWalk, wait);
+}
+
+function tryWalk() {
+  walkTimer = null;
+  if (!mischief || !gameIsActive()) return;
+  // 操作を邪魔する演出なので、プレイヤーが実際に打てる時間にだけ登場させる。
+  if (busy || turn !== YOU) {
+    scheduleWalker(1200);
+    return;
+  }
+
+  const walker = el('walker');
+  const grid = el('grid');
+  walker.classList.remove('go', 'ltr', 'rtl');
+  const maxTop = Math.max(0, grid.clientHeight - walker.offsetHeight);
+  walker.style.top = Math.round(Math.random() * maxTop) + 'px';
+  void walker.offsetWidth;
+  walker.classList.add('go', Math.random() < 0.5 ? 'ltr' : 'rtl');
+}
+
+el('walker').addEventListener('animationend', () => {
+  el('walker').classList.remove('go', 'ltr', 'rtl');
+  scheduleWalker();
+});
 
 function playerMove(r, c) {
   if (over || busy || turn !== YOU) return;
@@ -830,6 +898,7 @@ function aiTurn() {
 
 function finish() {
   over = true;
+  stopWalker();
   const { a, d } = count(board);
   el('fin-a').textContent = a;
   el('fin-b').textContent = d;
@@ -882,7 +951,7 @@ function buildGrid() {
   const g = el('grid');
   // 演出レイヤーは作り直さず使い回す。
   // g.innerHTML='' で外れる前に、必ずここで参照を取っておくこと
-  const fx = el('fx'), tags = el('tags'), cut = el('cutin');
+  const fx = el('fx'), tags = el('tags'), cut = el('cutin'), walker = el('walker');
   const vw = Math.min(window.innerWidth, 440);
   cell = Math.max(30, Math.min(48, Math.floor((vw - 24 - 18 - 4 - (N-1)) / N)));
   g.style.gridTemplateColumns = `repeat(${N}, ${cell}px)`;
@@ -906,6 +975,7 @@ function buildGrid() {
   g.appendChild(fx);
   g.appendChild(tags);
   g.appendChild(cut);
+  g.appendChild(walker);
   const side = N * cell + (N - 1);
   fx.setAttribute('viewBox', `0 0 ${side} ${side}`);
   fx.setAttribute('width', side);
@@ -1014,7 +1084,12 @@ function setMischief(on, silent) {
   el('mis-txt').innerHTML = mischief
     ? 'ON ／ ぽてぽてが10回に1回いたずらします<br><span style="color:var(--mis)">がんせき・せきがえ</span>'
     : 'OFF ／ ぽてぽては正々堂々と勝負します';
-  if (!mischief) gauge = 0;
+  if (!mischief) {
+    gauge = 0;
+    stopWalker();
+  } else if (gameIsActive() && !walkTimer && !el('walker').classList.contains('go')) {
+    scheduleWalker();
+  }
   if (!silent) toast(mischief ? '😈 イタズラモード ON！' : 'イタズラモード OFF');
   if (board && history) render();
 }
@@ -1068,13 +1143,21 @@ document.querySelectorAll('.lv-btn').forEach(b =>
 el('reset-btn').addEventListener('click', () => startGame());
 el('again-btn').addEventListener('click', () => startGame());
 el('undo-btn').addEventListener('click', undo);
-el('menu-btn').addEventListener('click', () => { el('over').classList.remove('show'); showScreen('menu'); });
-el('tomenu-btn').addEventListener('click', () => { el('over').classList.remove('show'); showScreen('menu'); });
+el('menu-btn').addEventListener('click', () => { stopWalker(); el('over').classList.remove('show'); showScreen('menu'); });
+el('tomenu-btn').addEventListener('click', () => { stopWalker(); el('over').classList.remove('show'); showScreen('menu'); });
 
 let rt;
 window.addEventListener('resize', () => {
   clearTimeout(rt);
-  rt = setTimeout(() => { if (board) { buildGrid(); render(); } }, 150);
+  rt = setTimeout(() => {
+    if (board) {
+      const wasWalking = el('walker').classList.contains('go');
+      if (wasWalking) stopWalker();
+      buildGrid();
+      render();
+      if (wasWalking) scheduleWalker(1200);
+    }
+  }, 150);
 });
 
 // ===== 起動 =====
